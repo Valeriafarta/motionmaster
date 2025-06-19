@@ -1,0 +1,132 @@
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import html2canvas from "html2canvas";
+
+const InstructionCarousel = () => {
+  const steps = [
+    "Выбери дату старта",
+    "Каждую неделю откладывай сумму",
+    "Отмечай прогресс",
+    "Сохрани результат и поделись в сторис!",
+  ];
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % steps.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <motion.div
+      className="text-xl font-bold text-center my-4"
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      {steps[current]}
+    </motion.div>
+  );
+};
+
+const generateWeeks = () => Array.from({ length: 52 }, (_, i) => i + 1);
+
+export default function WealthTracker() {
+  const [startDate, setStartDate] = useState(null);
+  const [completed, setCompleted] = useState(() => {
+    const saved = localStorage.getItem("wealth-weeks");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("wealth-weeks", JSON.stringify(completed));
+  }, [completed]);
+
+  const toggleWeek = (week) => {
+    setCompleted((prev) =>
+      prev.includes(week) ? prev.filter((w) => w !== week) : [...prev, week]
+    );
+  };
+
+  const shareProgress = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: "Мой прогресс 52 недели богатства",
+        text: `Я уже прошла ${completed.length} из 52 недель!`,
+        url: window.location.href,
+      });
+    } else {
+      alert("Поделиться можно только в поддерживаемых браузерах");
+    }
+  };
+
+  const saveImage = () => {
+    const target = document.getElementById("progress-shot");
+    if (target) {
+      html2canvas(target).then((canvas) => {
+        const link = document.createElement("a");
+        link.download = "wealth-progress.png";
+        link.href = canvas.toDataURL();
+        link.click();
+      });
+    }
+  };
+
+  return (
+    <div className="p-4 max-w-3xl mx-auto">
+      <InstructionCarousel />
+
+      <motion.div
+        className="mb-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+      >
+        <h2 className="text-lg font-semibold text-center mb-2">
+          Выбери дату старта
+        </h2>
+        <Calendar mode="single" selected={startDate} onSelect={setStartDate} />
+      </motion.div>
+
+      <div id="progress-shot">
+        <h2 className="text-lg font-semibold text-center my-4">
+          Мой прогресс ({completed.length}/52)
+        </h2>
+        <motion.div
+          className="grid grid-cols-4 sm:grid-cols-6 gap-2"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: { staggerChildren: 0.03 },
+            },
+          }}
+        >
+          {generateWeeks().map((week) => (
+            <motion.div
+              key={week}
+              variants={{
+                hidden: { opacity: 0, scale: 0.9 },
+                visible: { opacity: 1, scale: 1 },
+              }}
+              className={`p-2 rounded-xl text-center cursor-pointer text-sm font-medium border transition-all duration-300 shadow-md hover:shadow-lg ${completed.includes(week) ? "bg-pink-600 text-white" : "bg-white text-gray-700"}`}
+              onClick={() => toggleWeek(week)}
+            >
+              {week}
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+
+      <div className="flex gap-4 justify-center mt-6">
+        <Button onClick={saveImage}>📸 Сохранить прогресс</Button>
+        <Button onClick={shareProgress}>🔗 Поделиться</Button>
+      </div>
+    </div>
+  );
+}
